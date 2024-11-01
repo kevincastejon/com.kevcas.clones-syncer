@@ -1,0 +1,14 @@
+{
+  "name": "com.kevincastejon.cloned-projects-synchronizer",
+  "version": "0.0.1",
+  "displayName": "Cloned Projects Synchronizer",
+  "description": "Utilitary tool that makes working with multiple instances of the same Unity project easier by offering a way to synchronize them.",
+  "keywords": [
+    "clone",
+    "multiplayer",
+    "synchronization"
+  ],
+  "author": "KevinCastejon",
+  "type": "library",
+  "hideInEditor": false
+}
