@@ -37,10 +37,11 @@ namespace ClonedProjectsSynchronizer
             _includeUserSettings = ClonedProjectsSynchronizerSettingsManager.GetIncludeUserSettings();
             _exclusionPatterns = ClonedProjectsSynchronizerSettingsManager.GetExclusionPatterns();
             RefreshSubfoldersList();
-            _editorList = new(_list, _list.GetType(), true, false, true, false);
+            _editorList = new(_list, _list.GetType(), true, true, true, false);
             _editorList.elementHeight = 50f;
             _editorList.drawElementCallback += DrawElementCallback;
             _editorList.onAddCallback += OnAddCallback;
+            _editorList.drawHeaderCallback += DrawHeaderCallback;
         }
 
 
@@ -50,6 +51,7 @@ namespace ClonedProjectsSynchronizer
             _parametersFoldout = EditorGUILayout.BeginFoldoutHeaderGroup(_parametersFoldout, "Parameters");
             if (_parametersFoldout)
             {
+                EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
                 EditorGUILayout.BeginHorizontal();
                 EditorGUI.BeginChangeCheck();
                 _includeAssets = EditorGUILayout.ToggleLeft("Include Assets", _includeAssets, GUILayout.Width(130));
@@ -90,12 +92,16 @@ namespace ClonedProjectsSynchronizer
                 {
                     SaveExclusionPatterns();
                 }
+                EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
             }
             EditorGUI.BeginDisabledGroup(_operating);
-            if (GUILayout.Button("Synchronize All", GUILayout.Height(50f)))
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button(new GUIContent(" Synchronize all", EditorGUIUtility.IconContent("d_RotateTool On@2x").image, "efsef"), GUILayout.Height(50f), GUILayout.Width(140f)))
             {
                 SynchronizeAll();
             }
+            EditorGUILayout.EndHorizontal();
             _editorList.DoLayoutList();
             EditorGUI.EndDisabledGroup();
             EditorGUILayout.EndScrollView();
@@ -271,7 +277,12 @@ namespace ClonedProjectsSynchronizer
         {
             Rect rect = position;
             rect.width = position.width - 150;
-            EditorGUI.LabelField(rect, new GUIContent(_list[index], _list[index]));
+            rect.height = rect.height * 0.5f;
+            EditorGUI.LabelField(rect, Path.GetFileName(_list[index]), EditorStyles.boldLabel);
+            rect.y += rect.height;
+            EditorGUI.LabelField(rect, _list[index]);
+            rect.height = position.height;
+            rect.y = position.y;
             rect.x = rect.width + 25f;
             rect.width = 50f;
             if (GUI.Button(rect, new GUIContent(EditorGUIUtility.IconContent("d_FolderOpened Icon", "Open folder"))))
@@ -290,6 +301,11 @@ namespace ClonedProjectsSynchronizer
                 SaveClones();
                 EditorUtility.DisplayDialog("Clone removed", "The folder and files are not deleted, you have to remove them yourself if you will.", "Ok");
             }
+        }
+
+        private void DrawHeaderCallback(Rect rect)
+        {
+            EditorGUI.LabelField(rect, "Cloned projects");
         }
         private void SaveClones()
         {

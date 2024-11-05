@@ -4,9 +4,6 @@ using UnityEditor.SettingsManagement;
 
 namespace ClonedProjectsSynchronizer
 {
-    /// <summary>
-    /// This class will act as a manager for the <see cref="Settings"/> singleton.
-    /// </summary>
     static class ClonedProjectsSynchronizerSettingsManager
     {
         internal const string k_PackageName = "com.kevincastejon.cloned-projects-synchronizer";
