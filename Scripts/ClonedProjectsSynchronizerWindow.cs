@@ -16,11 +16,11 @@ namespace ClonedProjectsSynchronizer
         private bool _includeProjectSettings;
         private bool _includeUserSettings;
         private string _exclusionPatterns;
-        Vector2 scrollPos;
+        private Vector2 scrollPos;
         private ReorderableList _editorList;
         private bool _operating;
         private bool _parametersFoldout;
-        List<string> _foldersToCopy;
+        private List<string> _foldersToCopy;
 
         [MenuItem("Window/Cloned Projects Synchronizer")]
         public static void ShowWindow()
@@ -209,11 +209,7 @@ namespace ClonedProjectsSynchronizer
                     string sourcePath = Path.Combine(Application.dataPath, "../", folder);
                     string destinationPath = Path.Combine(targetPath, folder);
 
-                    if (Directory.Exists(destinationPath))
-                    {
-                        Directory.Delete(destinationPath, true);
-                    }
-                    CopyDirectory(sourcePath, destinationPath, exclusionArray);
+                    SynchronizeDirectories(sourcePath, destinationPath, exclusionArray);
                 }
                 return true;
             }
@@ -224,29 +220,67 @@ namespace ClonedProjectsSynchronizer
             }
         }
 
-        private void CopyDirectory(string sourceDir, string destinationDir, string[] exclusionPatterns)
+        private void SynchronizeDirectories(string sourceDir, string targetDir, string[] exclusionPatterns)
         {
-            Directory.CreateDirectory(destinationDir);
+            Directory.CreateDirectory(targetDir);
 
-            foreach (string filePath in Directory.GetFiles(sourceDir))
+            var sourceFiles = Directory.GetFiles(sourceDir);
+            var targetFiles = Directory.GetFiles(targetDir);
+
+            var targetFileSet = new HashSet<string>(targetFiles.Select(f => Path.GetFileName(f)));
+
+            foreach (string filePath in sourceFiles)
             {
                 string fileName = Path.GetFileName(filePath);
-                if (!exclusionPatterns.Any(pattern => fileName.Contains(pattern.Trim())))
+                if (exclusionPatterns.Any(pattern => fileName.Contains(pattern.Trim()))) continue;
+
+                string targetFilePath = Path.Combine(targetDir, fileName);
+
+                if (!targetFileSet.Contains(fileName) || IsFileDifferent(filePath, targetFilePath))
                 {
-                    string destFilePath = Path.Combine(destinationDir, fileName);
-                    File.Copy(filePath, destFilePath, true);
+                    File.Copy(filePath, targetFilePath, true);
                 }
+
+                targetFileSet.Remove(fileName);
             }
 
-            foreach (string dirPath in Directory.GetDirectories(sourceDir))
+            foreach (var obsoleteFile in targetFileSet)
+            {
+                File.Delete(Path.Combine(targetDir, obsoleteFile));
+            }
+
+            var sourceDirs = Directory.GetDirectories(sourceDir);
+            var targetDirs = Directory.GetDirectories(targetDir);
+
+            var targetDirSet = new HashSet<string>(targetDirs.Select(d => Path.GetFileName(d)));
+
+            foreach (string dirPath in sourceDirs)
             {
                 string dirName = Path.GetFileName(dirPath);
-                if (!exclusionPatterns.Any(pattern => dirName.Contains(pattern.Trim())))
-                {
-                    string destDirPath = Path.Combine(destinationDir, dirName);
-                    CopyDirectory(dirPath, destDirPath, exclusionPatterns);
-                }
+                if (exclusionPatterns.Any(pattern => dirName.Contains(pattern.Trim()))) continue;
+
+                string targetSubDir = Path.Combine(targetDir, dirName);
+
+                SynchronizeDirectories(dirPath, targetSubDir, exclusionPatterns);
+
+                targetDirSet.Remove(dirName);
             }
+
+            foreach (var obsoleteDir in targetDirSet)
+            {
+                Directory.Delete(Path.Combine(targetDir, obsoleteDir), true);
+            }
+        }
+
+        private bool IsFileDifferent(string sourceFilePath, string targetFilePath)
+        {
+            if (!File.Exists(targetFilePath))
+                return true;
+
+            FileInfo sourceInfo = new FileInfo(sourceFilePath);
+            FileInfo targetInfo = new FileInfo(targetFilePath);
+
+            return sourceInfo.Length != targetInfo.Length || sourceInfo.LastWriteTimeUtc != targetInfo.LastWriteTimeUtc;
         }
         private void RefreshSubfoldersList()
         {
