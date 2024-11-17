@@ -1,6 +1,6 @@
 {
   "name": "com.kevcas.clones-syncer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "Clones Syncer",
   "description": "Utilitary tool that allows to create clones projects and synchronize them. Usefull for multiplayer development. It supports cross-platform between master and clones projects. It also supports building from clones.",
   "dependencies": {

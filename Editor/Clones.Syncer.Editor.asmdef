@@ -1,5 +1,5 @@
 {
-    "name": "Clones.Syncer",
+    "name": "Clones.Syncer.Editor",
     "rootNamespace": "",
     "references": [
         "Unity.Settings.Editor"
