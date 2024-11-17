@@ -1,8 +1,8 @@
 {
-  "name": "com.kevincastejon.cloned-projects-synchronizer",
-  "version": "0.0.1",
-  "displayName": "Cloned Projects Synchronizer",
-  "description": "Utilitary tool that makes working with multiple instances of the same Unity project easier by offering a way to synchronize them.",
+  "name": "com.kevincastejon.clones-syncer",
+  "version": "0.1.0",
+  "displayName": "Clones Syncer",
+  "description": "Utilitary tool that allows to create clones projects and synchronize them. Usefull for multiplayer development. It supports cross-platform between master and clones projects. It also supports building from clones.",
   "dependencies": {
     "com.unity.settings-manager": "2.0.1"
   },

@@ -1,5 +1,5 @@
 {
-    "name": "Cloned.Projects.Synchronizer",
+    "name": "Clones.Syncer",
     "rootNamespace": "",
     "references": [
         "Unity.Settings.Editor"

@@ -2,11 +2,11 @@
 using UnityEditor;
 using UnityEditor.SettingsManagement;
 
-namespace ClonedProjectsSynchronizer
+namespace ClonesSyncer
 {
-    static class ClonedProjectsSynchronizerSettingsManager
+    static class ClonesSyncerSettingsManager
     {
-        internal const string k_PackageName = "com.kevincastejon.cloned-projects-synchronizer";
+        internal const string k_PackageName = "com.kevincastejon.clones-syncer";
 
         static Settings s_Instance;
 
@@ -65,10 +65,10 @@ namespace ClonedProjectsSynchronizer
         }
         public static bool GetIncludeUserSettings()
         {
-            return instance.Get("includeUserSettings", SettingsScope.User, false);
+            return instance.Get("includeUserSettings", SettingsScope.Project, false);
         }
 
-        public static void SetIncludeUserSettings(bool value, SettingsScope scope = SettingsScope.User)
+        public static void SetIncludeUserSettings(bool value, SettingsScope scope = SettingsScope.Project)
         {
             instance.Set("includeUserSettings", value, scope);
         }

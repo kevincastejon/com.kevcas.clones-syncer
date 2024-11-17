@@ -1,2 +1,5 @@
-# unity-cloned-projects-synchronizer
- Utilitary tool that makes working with multiple instances of the same Unity project easier by offering a way to synchronize them.
+# Unity Clones Syncer
+Utilitary tool that allows to create clones projects and synchronize them. 
+Usefull for multiplayer development. 
+It supports cross-platform between master and clones projects. 
+It also supports building from clones.
