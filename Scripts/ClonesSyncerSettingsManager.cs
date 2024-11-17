@@ -6,7 +6,7 @@ namespace ClonesSyncer
 {
     static class ClonesSyncerSettingsManager
     {
-        internal const string k_PackageName = "com.kevincastejon.clones-syncer";
+        internal const string k_PackageName = "com.kevcas.clones-syncer";
 
         static Settings s_Instance;
 
