@@ -1,5 +1,5 @@
 {
-  "name": "com.kevincastejon.clones-syncer",
+  "name": "com.kevcas.clones-syncer",
   "version": "0.1.0",
   "displayName": "Clones Syncer",
   "description": "Utilitary tool that allows to create clones projects and synchronize them. Usefull for multiplayer development. It supports cross-platform between master and clones projects. It also supports building from clones.",
@@ -11,7 +11,9 @@
     "multiplayer",
     "synchronization"
   ],
-  "author": "KevinCastejon",
-  "type": "library",
-  "hideInEditor": false
+  "author": {
+    "name": "Kevin Castejon",
+    "email": "castejonkevin@gmail.com",
+    "url": "https://www.kevincastejon.fr/"
+  },
 }
