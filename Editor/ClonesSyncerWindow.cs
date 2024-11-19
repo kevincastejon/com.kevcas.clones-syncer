@@ -10,20 +10,20 @@ namespace ClonesSyncer
 {
     internal class ClonesSyncerWindow : EditorWindow
     {
-        private List<ClonedProject> _clonesList;
+        private Vector2 scrollPos;
         private bool _includeAssets;
         private bool _includePackages;
         private bool _includeProjectSettings;
         private bool _includeUserSettings;
-        private List<string> _exclusionPatterns;
-        private Vector2 scrollPos;
+        private List<ClonedProject> _clonesList;
+        private List<ExclusionPattern> _exclusionsList;
         private ReorderableList _clonesEditorList;
         private ReorderableList _exclusionEditorList;
         private bool _parametersFoldout;
         private string _newExclusionPattern = "";
         private List<string> _foldersToCopy;
         private static List<string> _allFolders = new List<string> { "Assets", "Packages", "ProjectSettings", "UserSettings" };
-        private static List<ClonedProjectPlatform> _platformMapping = new() {
+        private static List<ClonedProjectPlatform> _platforms = new() {
             new("Current platform", null, null),
             new(BuildTarget.Android.ToString(), $"BuildSettings.{BuildTarget.Android.ToString()}@2x", "android"),
             new(BuildTarget.EmbeddedLinux.ToString(), $"BuildSettings.{BuildTarget.EmbeddedLinux.ToString()}@2x", "EmbeddedLinux"),
@@ -55,7 +55,6 @@ namespace ClonesSyncer
         {
             GetWindow<ClonesSyncerWindow>("Clones Syncer").minSize = Vector2.zero;
         }
-
         private void OnEnable()
         {
             _clonesList = ClonesSyncerSettingsManager.GetClones();
@@ -63,50 +62,35 @@ namespace ClonesSyncer
             _includePackages = ClonesSyncerSettingsManager.GetIncludePackages();
             _includeProjectSettings = ClonesSyncerSettingsManager.GetIncludeProjectSettings();
             _includeUserSettings = ClonesSyncerSettingsManager.GetIncludeUserSettings();
-            _exclusionPatterns = ClonesSyncerSettingsManager.GetExclusionPatterns();
+            _exclusionsList = ClonesSyncerSettingsManager.GetExclusionPatterns();
             RefreshSubfoldersList();
             _clonesEditorList = new(_clonesList, _clonesList.GetType(), true, false, true, true);
             _clonesEditorList.elementHeight = 55f;
             _clonesEditorList.drawElementCallback += DrawCloneElementCallback;
             _clonesEditorList.onAddCallback += OnAddCloneCallback;
             _clonesEditorList.onRemoveCallback += OnRemoveCloneCallback;
-            _exclusionEditorList = new(_exclusionPatterns, _exclusionPatterns.GetType(), true, false, false, true);
+            _exclusionEditorList = new(_exclusionsList, _exclusionsList.GetType(), true, false, false, true);
+            _exclusionEditorList.drawElementCallback += DrawExclusionElementCallback;
 
         }
-        private void OnRemoveCloneCallback(ReorderableList list)
-        {
-            if (list.count == 0)
-            {
-                return;
-            }
-            if (list.index == -1)
-            {
-                list.index = list.count - 1;
-            }
-            _clonesList.RemoveAt(list.index);
-            SaveClones();
-            EditorUtility.DisplayDialog("Clone removed", "The clone project has been removed from the list but the directory and its content still exists.\nIt is your responsability to delete it or not.", "Ok");
-        }
-
         private void OnGUI()
         {
             scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
             EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Clones", new GUIStyle(EditorStyles.boldLabel), GUILayout.Height(27.5f));
+            EditorGUILayout.LabelField("Clones", GUILayout.ExpandWidth(false), GUILayout.Height(27.5f), GUILayout.Width(50f));
             if (_clonesList.Count > 1)
             {
+                GUILayout.FlexibleSpace();
                 if (GUILayout.Button(new GUIContent(" Synchronize all", EditorGUIUtility.IconContent("d_RotateTool On@2x").image, "Synchronize all the cloned projects on the list"), GUILayout.Width(150f), GUILayout.Height(27.5f)))
                 {
                     SynchronizeAll();
                 }
-                EditorGUILayout.LabelField("", GUILayout.Width(1f), GUILayout.Height(0f));
             }
             EditorGUILayout.EndHorizontal();
             _clonesEditorList.DoLayoutList();
             DrawParameters();
             EditorGUILayout.EndScrollView();
         }
-
         private void DrawParameters()
         {
             _parametersFoldout = EditorGUILayout.BeginFoldoutHeaderGroup(_parametersFoldout, "Parameters");
@@ -114,47 +98,44 @@ namespace ClonesSyncer
             {
                 EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
                 EditorGUILayout.LabelField("Synchronized folders", EditorStyles.boldLabel);
-                EditorGUILayout.LabelField("(Note that when creating a clone all four folders will always be sychronized)", EditorStyles.miniBoldLabel);
-                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.HelpBox("(Note that when creating a clone, all four folders will always be sychronized)", MessageType.Info);
                 EditorGUI.BeginChangeCheck();
-                _includeAssets = EditorGUILayout.ToggleLeft("Include Assets", _includeAssets, GUILayout.Width(130));
+                _includeAssets = EditorGUILayout.ToggleLeft("Assets", _includeAssets, GUILayout.Width(130));
                 if (EditorGUI.EndChangeCheck())
                 {
                     SaveIncludeAssets();
                     RefreshSubfoldersList();
                 }
                 EditorGUI.BeginChangeCheck();
-                _includeProjectSettings = EditorGUILayout.ToggleLeft("Include ProjectSettings", _includeProjectSettings, GUILayout.Width(160));
-                if (EditorGUI.EndChangeCheck())
-                {
-                    SaveIncludeProjectSettings();
-                    RefreshSubfoldersList();
-                }
-                EditorGUILayout.EndHorizontal();
-                EditorGUILayout.BeginHorizontal();
-                EditorGUI.BeginChangeCheck();
-                _includePackages = EditorGUILayout.ToggleLeft("Include Packages", _includePackages, GUILayout.Width(130));
+                _includePackages = EditorGUILayout.ToggleLeft("Packages", _includePackages, GUILayout.Width(130));
                 if (EditorGUI.EndChangeCheck())
                 {
                     SaveIncludePackages();
                     RefreshSubfoldersList();
                 }
                 EditorGUI.BeginChangeCheck();
-                _includeUserSettings = EditorGUILayout.ToggleLeft("Include UserSettings", _includeUserSettings, GUILayout.Width(160));
+                _includeProjectSettings = EditorGUILayout.ToggleLeft("ProjectSettings", _includeProjectSettings, GUILayout.Width(160));
+                if (EditorGUI.EndChangeCheck())
+                {
+                    SaveIncludeProjectSettings();
+                    RefreshSubfoldersList();
+                }
+                EditorGUI.BeginChangeCheck();
+                _includeUserSettings = EditorGUILayout.ToggleLeft("UserSettings", _includeUserSettings, GUILayout.Width(160));
                 if (EditorGUI.EndChangeCheck())
                 {
                     SaveIncludeUserSettings();
                     RefreshSubfoldersList();
                 }
-                EditorGUILayout.EndHorizontal();
                 EditorGUILayout.Space(10f);
                 EditorGUILayout.LabelField("Exclusion Patterns:", EditorStyles.boldLabel);
                 EditorGUILayout.BeginHorizontal();
-                _newExclusionPattern = EditorGUILayout.TextField(new GUIContent("Add an exclusion pattern"), _newExclusionPattern);
-                EditorGUI.BeginDisabledGroup(string.IsNullOrEmpty(_newExclusionPattern) || _exclusionPatterns.Contains(_newExclusionPattern));
+                EditorGUILayout.LabelField(new GUIContent("Add exclusion"), GUILayout.Width(85f));
+                _newExclusionPattern = EditorGUILayout.TextField(GUIContent.none, _newExclusionPattern, GUILayout.Width(100f));
+                EditorGUI.BeginDisabledGroup(string.IsNullOrEmpty(_newExclusionPattern) || _exclusionsList.FindIndex(x => x.pattern == _newExclusionPattern) < -1);
                 if (GUILayout.Button(EditorGUIUtility.IconContent("CreateAddNew")))
                 {
-                    _exclusionPatterns.Add(_newExclusionPattern);
+                    _exclusionsList.Add(new() { pattern = _newExclusionPattern, isActive = true });
                     _newExclusionPattern = "";
                     _exclusionEditorList.index = _exclusionEditorList.count - 1;
                     EditorGUI.FocusTextInControl("");
@@ -171,7 +152,26 @@ namespace ClonesSyncer
                 EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
             }
         }
-
+        private void RefreshSubfoldersList()
+        {
+            _foldersToCopy = new List<string>();
+            if (_includeAssets)
+            {
+                _foldersToCopy.Add("Assets");
+            }
+            if (_includePackages)
+            {
+                _foldersToCopy.Add("Packages");
+            }
+            if (_includeProjectSettings)
+            {
+                _foldersToCopy.Add("ProjectSettings");
+            }
+            if (_includeUserSettings)
+            {
+                _foldersToCopy.Add("UserSettings");
+            }
+        }
         private bool SelectCloneFolder(out string targetPath)
         {
             string selectedPath = EditorUtility.OpenFolderPanel("Select clone project root folder", "", "");
@@ -255,7 +255,6 @@ namespace ClonesSyncer
                 Debug.Log("Project(s) synchronization has failed for the following clones:" + failIndexes.Select(x => "\n" + _clonesList[x]) + "\nSee console for details.");
             }
         }
-
         private bool OperateClone(string targetPath, bool forceAllFolders = false)
         {
             try
@@ -276,7 +275,6 @@ namespace ClonesSyncer
                 return false;
             }
         }
-
         private void SynchronizeDirectories(string sourceDir, string targetDir)
         {
             Directory.CreateDirectory(targetDir);
@@ -284,12 +282,15 @@ namespace ClonesSyncer
             var sourceFiles = Directory.GetFiles(sourceDir);
             var targetFiles = Directory.GetFiles(targetDir);
 
-            var targetFileSet = new HashSet<string>(targetFiles.Select(f => Path.GetFileName(f)));
+            var targetFileSet = new HashSet<string>(targetFiles.Select(f => Path.GetFileName(f)).Where(x => !_exclusionsList.Any(pattern => pattern.isActive && x.Contains(pattern.pattern.Trim()))));
 
             foreach (string filePath in sourceFiles)
             {
                 string fileName = Path.GetFileName(filePath);
-                if (_exclusionPatterns.Any(pattern => fileName.Contains(pattern.Trim()))) continue;
+                if (_exclusionsList.Any(pattern => pattern.isActive && fileName.Contains(pattern.pattern.Trim())))
+                {
+                    continue;
+                }
 
                 string targetFilePath = Path.Combine(targetDir, fileName);
 
@@ -324,12 +325,15 @@ namespace ClonesSyncer
             var sourceDirs = Directory.GetDirectories(sourceDir);
             var targetDirs = Directory.GetDirectories(targetDir);
 
-            var targetDirSet = new HashSet<string>(targetDirs.Select(d => Path.GetFileName(d)));
+            var targetDirSet = new HashSet<string>(targetDirs.Select(d => Path.GetFileName(d)).Where(x => !_exclusionsList.Any(pattern => pattern.isActive && x.Contains(pattern.pattern.Trim()))));
 
             foreach (string dirPath in sourceDirs)
             {
                 string dirName = Path.GetFileName(dirPath);
-                if (_exclusionPatterns.Any(pattern => dirName.Contains(pattern.Trim()))) continue;
+                if (_exclusionsList.Any(pattern => pattern.isActive && dirName.Contains(pattern.pattern.Trim())))
+                {
+                    continue;
+                }
 
                 string targetSubDir = Path.Combine(targetDir, dirName);
 
@@ -351,7 +355,6 @@ namespace ClonesSyncer
                 }
             }
         }
-
         private bool IsFileDifferent(string sourceFilePath, string targetFilePath)
         {
             if (!File.Exists(targetFilePath))
@@ -362,31 +365,6 @@ namespace ClonesSyncer
 
             return sourceInfo.Length != targetInfo.Length || sourceInfo.LastWriteTimeUtc != targetInfo.LastWriteTimeUtc;
         }
-        private void RefreshSubfoldersList()
-        {
-            _foldersToCopy = new List<string>();
-            if (_includeAssets)
-            {
-                _foldersToCopy.Add("Assets");
-            }
-            if (_includePackages)
-            {
-                _foldersToCopy.Add("Packages");
-            }
-            if (_includeProjectSettings)
-            {
-                _foldersToCopy.Add("ProjectSettings");
-            }
-            if (_includeUserSettings)
-            {
-                _foldersToCopy.Add("UserSettings");
-            }
-        }
-        private void OnAddCloneCallback(ReorderableList list)
-        {
-            AddClone();
-        }
-
         private void DrawCloneElementCallback(Rect position, int index, bool isActive, bool isFocused)
         {
             position.height -= 5f;
@@ -398,8 +376,8 @@ namespace ClonesSyncer
             rect.y += rect.height;
             EditorGUI.LabelField(rect, _clonesList[index].path);
             rect.y = position.y;
-            rect.x = rect.x + rect.width;
             rect.width = 150f;
+            rect.x = position.x + position.width - rect.width;
             if (GUI.Button(rect, new GUIContent(" Synchronize", EditorGUIUtility.IconContent("Refresh@2x").image, "Synchronize project")))
             {
                 SynchronizeClone(index);
@@ -412,20 +390,55 @@ namespace ClonesSyncer
             }
             rect.x += rect.width;
             rect.width = 30f;
-            int selectedIndex = _platformMapping.FindIndex(x => x.label == _clonesList[index].platform.label);
+            int selectedIndex = _platforms.FindIndex(x => x.label == _clonesList[index].platform.label);
 
             if (GUI.Button(rect, new GUIContent(EditorGUIUtility.IconContent(string.IsNullOrEmpty(_clonesList[index].platform.iconPath) ? "d_icon dropdown" : _clonesList[index].platform.iconPath).image, "Select specific platform")))
             {
                 GenericMenu menu = new();
-                for (int i = 0; i < _platformMapping.Count; i++)
+                for (int i = 0; i < _platforms.Count; i++)
                 {
-                    menu.AddItem(new GUIContent(_platformMapping[i].label), _platformMapping[i].label == _clonesList[index].platform.label, (object platform) =>
+                    menu.AddItem(new GUIContent(_platforms[i].label), _platforms[i].label == _clonesList[index].platform.label, (object platform) =>
                     {
                         _clonesList[index].platform = (ClonedProjectPlatform)platform;
                         SaveClones();
-                    }, _platformMapping[i]);
+                    }, _platforms[i]);
                 }
                 menu.ShowAsContext();
+            }
+        }
+        private void OnAddCloneCallback(ReorderableList list)
+        {
+            AddClone();
+        }
+        private void OnRemoveCloneCallback(ReorderableList list)
+        {
+            if (list.count == 0)
+            {
+                return;
+            }
+            if (list.index == -1)
+            {
+                list.index = list.count - 1;
+            }
+            _clonesList.RemoveAt(list.index);
+            SaveClones();
+            EditorUtility.DisplayDialog("Clone removed", "The clone project has been removed from the list but the directory and its content still exists.\nIt is your responsability to delete it or not.", "Ok");
+        }
+        private void DrawExclusionElementCallback(Rect position, int index, bool isActive, bool isFocused)
+        {
+            Rect rect = position;
+            rect.width = position.width - 100f;
+            EditorGUI.LabelField(rect, _exclusionsList[index].pattern, EditorStyles.boldLabel);
+            rect.x = position.x + position.width - 80f;
+            rect.width = 80f;
+            EditorGUI.LabelField(rect, "Exclude");
+            EditorGUI.BeginChangeCheck();
+            rect.x = position.x + position.width - 20f;
+            rect.width = 20f;
+            _exclusionsList[index].isActive = EditorGUI.Toggle(rect, GUIContent.none, _exclusionsList[index].isActive);
+            if (EditorGUI.EndChangeCheck())
+            {
+                SaveExclusionPatterns();
             }
         }
         private void OpenProjectInUnity(string projectPath, string buildTargetPlatform)
@@ -493,7 +506,7 @@ namespace ClonesSyncer
         }
         private void SaveExclusionPatterns()
         {
-            ClonesSyncerSettingsManager.SetExclusionPatterns(_exclusionPatterns);
+            ClonesSyncerSettingsManager.SetExclusionPatterns(_exclusionsList);
             ClonesSyncerSettingsManager.Save();
         }
     }

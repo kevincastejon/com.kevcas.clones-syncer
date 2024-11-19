@@ -31,6 +31,14 @@ namespace ClonesSyncer
             this.buildTarget = buildTarget;
         }
     }
+    [Serializable]
+    internal class ExclusionPattern
+    {
+        [SerializeField]
+        internal string pattern;
+        [SerializeField]
+        internal bool isActive;
+    }
     internal static class ClonesSyncerSettingsManager
     {
         internal const string k_PackageName = "com.kevcas.clones-syncer";
@@ -74,7 +82,7 @@ namespace ClonesSyncer
         }
         internal static bool GetIncludePackages()
         {
-            return instance.Get("includePackages", SettingsScope.Project, true);
+            return instance.Get("includePackages", SettingsScope.Project, false);
         }
 
         internal static void SetIncludePackages(bool value, SettingsScope scope = SettingsScope.Project)
@@ -99,12 +107,12 @@ namespace ClonesSyncer
         {
             instance.Set("includeUserSettings", value, scope);
         }
-        internal static List<string> GetExclusionPatterns()
+        internal static List<ExclusionPattern> GetExclusionPatterns()
         {
-            return instance.Get("exclusionPatterns", SettingsScope.Project, new List<string>() { ".git" });
+            return instance.Get("exclusionPatterns", SettingsScope.Project, new List<ExclusionPattern>() { new() { pattern = ".git", isActive = true } });
         }
 
-        internal static void SetExclusionPatterns(List<string> value, SettingsScope scope = SettingsScope.Project)
+        internal static void SetExclusionPatterns(List<ExclusionPattern> value, SettingsScope scope = SettingsScope.Project)
         {
             instance.Set("exclusionPatterns", value, scope);
         }
