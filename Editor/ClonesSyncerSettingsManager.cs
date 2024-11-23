@@ -61,7 +61,15 @@ namespace ClonesSyncer
         {
             instance.Save();
         }
+        internal static string GetMasterProjectPath()
+        {
+            return instance.Get("masterProjectPath", SettingsScope.Project, "");
+        }
 
+        internal static void SetMasterProjectPath(string value)
+        {
+            instance.Set("masterProjectPath", value, SettingsScope.Project);
+        }
         internal static List<ClonedProject> GetClones()
         {
             return instance.Get("clones", SettingsScope.Project, new List<ClonedProject>());

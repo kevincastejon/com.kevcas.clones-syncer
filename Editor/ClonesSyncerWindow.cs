@@ -8,6 +8,12 @@ using System.Linq;
 
 namespace ClonesSyncer
 {
+    internal enum IncorrectPathResolveStep
+    {
+        NONE,
+        IS_MASTER,
+        IS_CLONE
+    }
     internal class ClonesSyncerWindow : EditorWindow
     {
         private Vector2 scrollPos;
@@ -15,6 +21,7 @@ namespace ClonesSyncer
         private bool _includePackages;
         private bool _includeProjectSettings;
         private bool _includeUserSettings;
+        private string _masterProjectPath;
         private List<ClonedProject> _clonesList;
         private List<ExclusionPattern> _exclusionsList;
         private ReorderableList _clonesEditorList;
@@ -50,6 +57,10 @@ namespace ClonesSyncer
             new(BuildTarget.WSAPlayer.ToString(), $"BuildSettings.Metro@2x", "WSAPlayer"),
             new(BuildTarget.XboxOne.ToString(), $"BuildSettings.{BuildTarget.XboxOne.ToString()}@2x", "XboxOne"),
         };
+        private IncorrectPathResolveStep _incorrectPathResolveStep;
+        private string _applicationPath = Application.dataPath.Substring(0, Application.dataPath.Length - 7);
+        public bool IsMasterProject => _masterProjectPath == _applicationPath;
+        public bool IsCloneProject => _clonesList.FindIndex(x => x.path == _applicationPath) > -1;
         [MenuItem("Window/Clones Syncer")]
         internal static void ShowWindow()
         {
@@ -57,7 +68,19 @@ namespace ClonesSyncer
         }
         private void OnEnable()
         {
+            Debug.Log(_applicationPath);
+            _masterProjectPath = ClonesSyncerSettingsManager.GetMasterProjectPath();
+            if (string.IsNullOrEmpty(_masterProjectPath))
+            {
+                _masterProjectPath = _applicationPath;
+                SaveMasterProjectPath();
+            }
             _clonesList = ClonesSyncerSettingsManager.GetClones();
+            foreach (var item in _clonesList)
+            {
+                Debug.Log(item.path + "      " + _applicationPath);
+
+            }
             _includeAssets = ClonesSyncerSettingsManager.GetIncludeAssets();
             _includePackages = ClonesSyncerSettingsManager.GetIncludePackages();
             _includeProjectSettings = ClonesSyncerSettingsManager.GetIncludeProjectSettings();
@@ -76,19 +99,88 @@ namespace ClonesSyncer
         private void OnGUI()
         {
             scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Clones", GUILayout.ExpandWidth(false), GUILayout.Height(27.5f), GUILayout.Width(50f));
-            if (_clonesList.Count > 1)
+            if (!IsMasterProject && !IsCloneProject)
             {
-                GUILayout.FlexibleSpace();
-                if (GUILayout.Button(new GUIContent(" Synchronize all", EditorGUIUtility.IconContent("d_RotateTool On@2x").image, "Synchronize all the cloned projects on the list"), GUILayout.Width(150f), GUILayout.Height(27.5f)))
+                EditorGUILayout.LabelField("Incorrect path(s) detected!", new GUIStyle(EditorStyles.boldLabel) { alignment = TextAnchor.MiddleCenter });
+                EditorGUILayout.LabelField("Is this the master project?");
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("Yes"))
                 {
-                    SynchronizeAll();
+                    _incorrectPathResolveStep = IncorrectPathResolveStep.IS_MASTER;
+                }
+                if (GUILayout.Button("No"))
+                {
+                    _incorrectPathResolveStep = IncorrectPathResolveStep.IS_CLONE;
+                }
+                EditorGUILayout.EndHorizontal();
+                if (_incorrectPathResolveStep != IncorrectPathResolveStep.NONE)
+                {
+                    if (_incorrectPathResolveStep == IncorrectPathResolveStep.IS_CLONE)
+                    {
+                        EditorGUILayout.LabelField("Please resynchronize this clone from the master project itself.");
+                    }
+                    else
+                    {
+                        EditorGUILayout.LabelField("Are these clone(s) path(s) still valid?");
+                        _clonesList.ForEach(x => EditorGUILayout.LabelField(x.path));
+                        EditorGUILayout.BeginHorizontal();
+                        if (GUILayout.Button("Yes, keep them"))
+                        {
+                            _masterProjectPath = _applicationPath;
+                            SaveMasterProjectPath();
+                        }
+                        if (GUILayout.Button("No, clear the list"))
+                        {
+                            _masterProjectPath = _applicationPath;
+                            _clonesList.Clear();
+                            SaveMasterProjectPath();
+                            SaveClones();
+                        }
+                        EditorGUILayout.EndHorizontal();
+                    }
                 }
             }
-            EditorGUILayout.EndHorizontal();
-            _clonesEditorList.DoLayoutList();
-            DrawParameters();
+            else
+            {
+                if (IsMasterProject)
+                {
+                    EditorGUILayout.LabelField("Master project", EditorStyles.boldLabel);
+                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField("Clones :", GUILayout.ExpandWidth(false), GUILayout.Height(27.5f), GUILayout.Width(50f));
+                    if (_clonesList.Count > 1)
+                    {
+                        GUILayout.FlexibleSpace();
+                        if (GUILayout.Button(new GUIContent(" Synchronize all", EditorGUIUtility.IconContent("d_RotateTool On@2x").image, "Synchronize all the cloned projects on the list"), GUILayout.Width(150f), GUILayout.Height(27.5f)))
+                        {
+                            SynchronizeAll();
+                        }
+                    }
+                    EditorGUILayout.EndHorizontal();
+                    _clonesEditorList.DoLayoutList();
+                    DrawParameters();
+                }
+                else
+                {
+                    EditorGUILayout.LabelField("Clone project", EditorStyles.boldLabel);
+                    EditorGUILayout.Space(10f);
+                    EditorGUILayout.LabelField("Master :");
+                    Rect position = EditorGUILayout.GetControlRect(false, 55f);
+                    Rect rect = position;
+                    rect.width = position.width - 150f;
+                    rect.height = rect.height * 0.5f;
+                    EditorGUI.LabelField(rect, Path.GetFileName(_masterProjectPath), EditorStyles.boldLabel);
+                    rect.y += rect.height;
+                    EditorGUI.LabelField(rect, _masterProjectPath);
+                    rect.y = position.y;
+                    rect.width = 150f;
+                    rect.x = position.x + position.width - rect.width;
+                    rect.y += rect.height;
+                    if (GUI.Button(rect, new GUIContent("Open master", EditorGUIUtility.IconContent("d_UnityLogo").image, "Open the master project")))
+                    {
+                        OpenProjectInUnity(_masterProjectPath);
+                    }
+                }
+            }
             EditorGUILayout.EndScrollView();
         }
         private void DrawParameters()
@@ -182,7 +274,7 @@ namespace ClonesSyncer
                 return false;
             }
 
-            if (Path.GetFullPath(Path.Combine(Application.dataPath, "..")) == Path.GetFullPath(selectedPath))
+            if (Path.GetFullPath(Path.Combine(_applicationPath, "..")) == Path.GetFullPath(selectedPath))
             {
                 EditorUtility.DisplayDialog("Wrong project selected", "You cannot select the master project as a clone !", "Ok");
                 targetPath = null;
@@ -203,16 +295,18 @@ namespace ClonesSyncer
 
             if (EditorUtility.DisplayDialog("Confirm", $"Do you want to clone the project to:\n{targetPath}?\nThis will synchronize the " + string.Join(", ", _allFolders) + " directories at the selected path.", "Yes", "No"))
             {
+                _clonesList.Add(new() { path = targetPath, platform = new("Current platform", null, null) });
+                SaveClones();
                 EditorUtility.DisplayProgressBar("Cloning project", "Please wait...", 0f);
                 if (OperateClone(targetPath, true))
                 {
-                    _clonesList.Add(new() { path = targetPath, platform = new("Current platform", null, null) });
-                    SaveClones();
                     EditorUtility.ClearProgressBar();
                     Debug.Log("Project cloned successfully.");
                 }
                 else
                 {
+                    _clonesList.RemoveAt(_clonesList.Count - 1);
+                    SaveClones();
                     EditorUtility.ClearProgressBar();
                     Debug.Log("Project cloning has failed. See console for details.");
                 }
@@ -262,7 +356,7 @@ namespace ClonesSyncer
                 List<string> foldersToCopy = forceAllFolders ? _allFolders : _foldersToCopy;
                 foreach (string folder in foldersToCopy)
                 {
-                    string sourcePath = Path.Combine(Application.dataPath, "../", folder);
+                    string sourcePath = Path.Combine(_masterProjectPath, folder);
                     string destinationPath = Path.Combine(targetPath, folder);
 
                     SynchronizeDirectories(sourcePath, destinationPath);
@@ -390,7 +484,7 @@ namespace ClonesSyncer
             }
             rect.x += rect.width;
             rect.width = 30f;
-            int selectedIndex = _platforms.FindIndex(x => x.label == _clonesList[index].platform.label);
+            int selectedPlatformIndex = _platforms.FindIndex(x => x.label == _clonesList[index].platform.label);
 
             if (GUI.Button(rect, new GUIContent(EditorGUIUtility.IconContent(string.IsNullOrEmpty(_clonesList[index].platform.iconPath) ? "d_icon dropdown" : _clonesList[index].platform.iconPath).image, "Select specific platform")))
             {
@@ -441,14 +535,13 @@ namespace ClonesSyncer
                 SaveExclusionPatterns();
             }
         }
-        private void OpenProjectInUnity(string projectPath, string buildTargetPlatform)
+        private void OpenProjectInUnity(string projectPath, string buildTargetPlatform = "")
         {
             string unityPath = EditorApplication.applicationPath;
             bool headless = buildTargetPlatform.Contains(":Server");
             if (headless)
             {
-                buildTargetPlatform = buildTargetPlatform.Substring(0, buildTargetPlatform.IndexOf(":Server"));
-                Debug.Log(buildTargetPlatform);
+                buildTargetPlatform = buildTargetPlatform.Substring(0, 7);
                 return;
             }
             if (!Directory.Exists(projectPath))
@@ -462,7 +555,7 @@ namespace ClonesSyncer
                 System.Diagnostics.ProcessStartInfo startInfo = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = unityPath,
-                    Arguments = $"-projectPath \"{projectPath}\"" + (string.IsNullOrEmpty(buildTargetPlatform) ? "" : $" -buildTarget {buildTargetPlatform}"),
+                    Arguments = $"-projectPath \"{projectPath}\"" + (string.IsNullOrEmpty(buildTargetPlatform) ? "" : $" -buildTarget {buildTargetPlatform} {(headless ? "-standaloneBuildSubtarget Server" : "")}"),
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -478,6 +571,11 @@ namespace ClonesSyncer
             {
                 Debug.LogError($"Failed to open Unity project: {ex.Message}");
             }
+        }
+        private void SaveMasterProjectPath()
+        {
+            ClonesSyncerSettingsManager.SetMasterProjectPath(_masterProjectPath);
+            ClonesSyncerSettingsManager.Save();
         }
         private void SaveClones()
         {
