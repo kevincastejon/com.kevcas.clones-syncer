@@ -68,7 +68,6 @@ namespace ClonesSyncer
         }
         private void OnEnable()
         {
-            Debug.Log(_applicationPath);
             _masterProjectPath = ClonesSyncerSettingsManager.GetMasterProjectPath();
             if (string.IsNullOrEmpty(_masterProjectPath))
             {
@@ -76,11 +75,6 @@ namespace ClonesSyncer
                 SaveMasterProjectPath();
             }
             _clonesList = ClonesSyncerSettingsManager.GetClones();
-            foreach (var item in _clonesList)
-            {
-                Debug.Log(item.path + "      " + _applicationPath);
-
-            }
             _includeAssets = ClonesSyncerSettingsManager.GetIncludeAssets();
             _includePackages = ClonesSyncerSettingsManager.GetIncludePackages();
             _includeProjectSettings = ClonesSyncerSettingsManager.GetIncludeProjectSettings();
